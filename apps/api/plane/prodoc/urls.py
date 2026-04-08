@@ -5,12 +5,26 @@ from plane.prodoc.views.holiday import (
     HolidayCalendarDetailAPIEndpoint,
     HolidayCalendarListCreateAPIEndpoint,
 )
+from plane.prodoc.views.materialize import (
+    ProdocMaterializationJobDetailAPIEndpoint,
+    ProdocMaterializeAPIEndpoint,
+)
 from plane.prodoc.views.project_settings import ProdocProjectSettingsAPIEndpoint
 from plane.prodoc.views.reference import (
     ProdocMigrationRequirementDetailAPIEndpoint,
     ProdocMigrationRequirementListCreateAPIEndpoint,
     ProdocThirdPartyToolDetailAPIEndpoint,
     ProdocThirdPartyToolListCreateAPIEndpoint,
+)
+from plane.prodoc.views.site import (
+    ProdocSiteDetailAPIEndpoint,
+    ProdocSiteListCreateAPIEndpoint,
+)
+from plane.prodoc.views.wave import (
+    ProdocWaveDetailAPIEndpoint,
+    ProdocWaveListCreateAPIEndpoint,
+    ProdocWaveSiteAttachAPIEndpoint,
+    ProdocWaveSiteDetachAPIEndpoint,
 )
 from plane.prodoc.views.template import (
     ProdocTemplateDetailAPIEndpoint,
@@ -136,5 +150,64 @@ urlpatterns = [
             http_method_names=["get", "patch", "delete", "options"]
         ),
         name="prodoc-third-party-tool-detail",
+    ),
+    # ----- Sites -----
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/sites/",
+        ProdocSiteListCreateAPIEndpoint.as_view(
+            http_method_names=["get", "post", "options"]
+        ),
+        name="prodoc-site-list",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/sites/<uuid:site_id>/",
+        ProdocSiteDetailAPIEndpoint.as_view(
+            http_method_names=["get", "patch", "delete", "options"]
+        ),
+        name="prodoc-site-detail",
+    ),
+    # ----- Waves -----
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/waves/",
+        ProdocWaveListCreateAPIEndpoint.as_view(
+            http_method_names=["get", "post", "options"]
+        ),
+        name="prodoc-wave-list",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/waves/<uuid:wave_id>/",
+        ProdocWaveDetailAPIEndpoint.as_view(
+            http_method_names=["get", "patch", "delete", "options"]
+        ),
+        name="prodoc-wave-detail",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/waves/<uuid:wave_id>/sites/",
+        ProdocWaveSiteAttachAPIEndpoint.as_view(
+            http_method_names=["post", "options"]
+        ),
+        name="prodoc-wave-site-attach",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/waves/<uuid:wave_id>/sites/<uuid:site_id>/",
+        ProdocWaveSiteDetachAPIEndpoint.as_view(
+            http_method_names=["delete", "options"]
+        ),
+        name="prodoc-wave-site-detach",
+    ),
+    # ----- Materialize + jobs -----
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/materialize/",
+        ProdocMaterializeAPIEndpoint.as_view(
+            http_method_names=["post", "options"]
+        ),
+        name="prodoc-materialize",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/materialization-jobs/<uuid:job_id>/",
+        ProdocMaterializationJobDetailAPIEndpoint.as_view(
+            http_method_names=["get", "options"]
+        ),
+        name="prodoc-materialization-job-detail",
     ),
 ]
