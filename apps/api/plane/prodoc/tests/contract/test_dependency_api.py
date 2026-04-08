@@ -282,3 +282,89 @@ class TestProdocDependencyDeleteEndpoint:
             )
 
         assert not mock_task.delay.called
+
+
+@pytest.mark.contract
+class TestDispatcherOptInPaths:
+    """Extension 2 added a sidecar opt-in (ProdocWebhookSettings.dependency).
+
+    These tests exercise the dispatcher's queryset directly rather than
+    going through the signal — they assert that the right webhooks are
+    selected for fan-out under the new primary/fallback rules.
+    """
+
+    @pytest.mark.django_db
+    def test_dispatcher_selects_primary_optin_via_sidecar(
+        self, workspace, project, webhook_factory
+    ):
+        from plane.prodoc.tasks import prodoc_dispatch_dependency_webhook
+
+        # Primary: issue=False, sidecar dependency=True
+        primary = webhook_factory(workspace, issue=False, dependency_optin=True)
+        # Excluded: issue=False, no sidecar
+        excluded = webhook_factory(workspace, issue=False, dependency_optin=False)
+
+        with patch("plane.prodoc.tasks.webhook_send_task") as mock_send:
+            prodoc_dispatch_dependency_webhook(
+                action="created",
+                relation_id="00000000-0000-0000-0000-000000000001",
+                workspace_id=str(workspace.id),
+                project_id=str(project.id),
+                issue_id="00000000-0000-0000-0000-000000000002",
+                related_issue_id="00000000-0000-0000-0000-000000000003",
+                relation_type="blocked_by",
+            )
+
+        sent = {c.kwargs["webhook_id"] for c in mock_send.delay.call_args_list}
+        assert str(primary.id) in sent
+        assert str(excluded.id) not in sent
+
+    @pytest.mark.django_db
+    def test_dispatcher_falls_back_to_legacy_webhook_issue_optin(
+        self, workspace, project, webhook_factory
+    ):
+        from plane.prodoc.tasks import prodoc_dispatch_dependency_webhook
+
+        # Fallback: issue=True, no sidecar (legacy Ext 1 opt-in)
+        fallback = webhook_factory(workspace, issue=True, dependency_optin=False)
+        # Excluded: issue=False, no sidecar
+        excluded = webhook_factory(workspace, issue=False, dependency_optin=False)
+
+        with patch("plane.prodoc.tasks.webhook_send_task") as mock_send:
+            prodoc_dispatch_dependency_webhook(
+                action="deleted",
+                relation_id="00000000-0000-0000-0000-000000000001",
+                workspace_id=str(workspace.id),
+                project_id=str(project.id),
+                issue_id="00000000-0000-0000-0000-000000000002",
+                related_issue_id="00000000-0000-0000-0000-000000000003",
+                relation_type="blocked_by",
+            )
+
+        sent = {c.kwargs["webhook_id"] for c in mock_send.delay.call_args_list}
+        assert str(fallback.id) in sent
+        assert str(excluded.id) not in sent
+
+    @pytest.mark.django_db
+    def test_dispatcher_dedupes_webhook_in_both_primary_and_fallback(
+        self, workspace, project, webhook_factory
+    ):
+        """A webhook with both issue=True AND sidecar dependency=True
+        should appear in the primary set only, not duplicated."""
+        from plane.prodoc.tasks import prodoc_dispatch_dependency_webhook
+
+        both = webhook_factory(workspace, issue=True, dependency_optin=True)
+
+        with patch("plane.prodoc.tasks.webhook_send_task") as mock_send:
+            prodoc_dispatch_dependency_webhook(
+                action="created",
+                relation_id="00000000-0000-0000-0000-000000000001",
+                workspace_id=str(workspace.id),
+                project_id=str(project.id),
+                issue_id="00000000-0000-0000-0000-000000000002",
+                related_issue_id="00000000-0000-0000-0000-000000000003",
+                relation_type="blocked_by",
+            )
+
+        ids_called = [c.kwargs["webhook_id"] for c in mock_send.delay.call_args_list]
+        assert ids_called.count(str(both.id)) == 1
