@@ -266,6 +266,14 @@ The build plan was operating on a stale premise. We do not need to duplicate GET
 
 **Vocabulary correction.** The relation type strings used throughout this section should come from `IssueRelationChoices` in `apps/api/plane/db/models/issue.py:263`: `blocked_by`, `relates_to`, `duplicate`, `start_before`, `finish_before`, `implemented_by`, plus the synthetic reverse names `blocking`, `start_after`, `finish_after`, `implements`. Earlier drafts of §5 referenced `blocks` / `depends_on` which do not exist in the upstream vocabulary.
 
+### 5.10 Lessons for future extensions
+
+Two reusable lessons surfaced during Extension 1 development. Recording them here so future extensions don't relearn them at test-debug time.
+
+**(a) `SoftDeleteModel.delete()` is a save, not a delete.** Plane's soft-delete mixin at `apps/api/plane/db/mixins.py:72` overrides `Model.delete()` to set `deleted_at = timezone.now()` and call `save()` by default. The actual SQL `DELETE` only runs when the nightly `hard_delete` sweep runs, hours later, in a different process. **Consequence:** `post_delete` signals **never fire** for soft-deletable models in the request path. Any signal-based fan-out (webhooks, cache invalidation, dependency cascades) must register on `post_save` and inspect `instance.deleted_at is not None` to distinguish "create / normal update" from "soft-delete". A single consolidated `post_save` handler is the canonical pattern — see `apps/api/plane/prodoc/signals/dependency.py` for the reference implementation. Do not be tempted to register a `post_delete` receiver "just in case" — it will silently never fire and lull you into thinking your fan-out works.
+
+**(b) `webhook_send_task.delay` is a public surface from the Prodoc side.** `apps/api/plane/bgtasks/webhook_task.py:260` accepts `(webhook_id, slug, event, event_data, action, current_site, activity)` and is callable directly from any Prodoc Celery task. This means **Prodoc can fan out webhooks for new event types without forking the webhook plumbing** and without editing the upstream `webhook_activity` event filter at `apps/api/plane/bgtasks/webhook_task.py:418` (which would require touching a forbidden file and adding model fields). The right pattern: write a small Prodoc-side dispatcher in `apps/api/plane/prodoc/tasks.py` that queries `Webhook.objects.filter(workspace_id=..., is_active=True, deleted_at__isnull=True, ...)` with whatever opt-in semantics are appropriate, and calls `webhook_send_task.delay(...)` per matching webhook. For the opt-in field itself: **do not add a column to the upstream `Webhook` model.** Django won't expose a column to the ORM unless the field is declared on the model class, which is forbidden by §2. Use a Prodoc-side sidecar OneToOne settings model instead (e.g., `ProdocWebhookSettings(webhook=OneToOneField(Webhook, ...), <opt_in_bool>=BooleanField(default=False))`) and join through it in the dispatcher's query — see Extension 2 for the reference implementation.
+
 ---
 
 ## 6. Extension 2 — Business-Day Scheduler and Dependency Cascade
@@ -287,9 +295,11 @@ Plane has none of this. It stores `start_date` and `target_date` as raw calendar
 - REST API for holiday CRUD.
 - India public holiday seed data for 2026 and 2027 via a Django management command.
 
+**As-built note (added after Extension 2 shipped):** §6.2's original "one calendar per workspace" scope was widened during Ext 2 implementation to **workspace default + optional per-project override** via a `ProdocProjectSettings` sidecar model (`apps/api/plane/prodoc/models/project_settings.py`). The sidecar holds an optional `holiday_calendar` ForeignKey; when set, it overrides the workspace default for that project's cascade computations. The override mechanism does not modify upstream's `Project` model — strict §2 compliance via OneToOne sidecar. The build plan was updated in Ext 2 commit 1 to keep the doc and the code in sync.
+
 **Out of scope:**
 
-- Multiple calendars per workspace (one per workspace initially).
+- Multiple calendars per workspace beyond a single named default — _partially relaxed._ Multiple `HolidayCalendar` rows can coexist in a workspace; the resolver picks the project's override if set, otherwise falls back to the first calendar by name. No "default" flag yet — that's Extension 3 if needed.
 - Backward cascade (early finishes do not pull downstream dates in).
 - Resource leveling or capacity planning.
 - Skipping holidays during cascade if downstream tasks have manually-locked dates (locking is part of Extension 3).

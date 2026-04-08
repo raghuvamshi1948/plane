@@ -124,16 +124,27 @@ def relation_factory(db):
 
 @pytest.fixture
 def webhook_factory(db):
-    """Factory producing active `issue=True` webhooks in a workspace."""
+    """Factory producing webhooks in a workspace.
+
+    Defaults to `issue=True` so existing tests that exercise the
+    Extension 1 fallback path keep working without churn. Pass
+    `issue=False` and `dependency_optin=True` to test the Extension 2
+    sidecar primary path.
+    """
+    from plane.prodoc.models import ProdocWebhookSettings
+
     counter = {"n": 0}
 
-    def _make(workspace, url=None):
+    def _make(workspace, url=None, issue=True, dependency_optin=False):
         counter["n"] += 1
-        return Webhook.objects.create(
+        webhook = Webhook.objects.create(
             workspace=workspace,
             url=url or f"https://example.com/webhook/{counter['n']}",
             is_active=True,
-            issue=True,
+            issue=issue,
         )
+        if dependency_optin:
+            ProdocWebhookSettings.objects.create(webhook=webhook, dependency=True)
+        return webhook
 
     return _make

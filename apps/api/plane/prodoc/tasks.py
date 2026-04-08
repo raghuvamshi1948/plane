@@ -17,15 +17,22 @@ def prodoc_dispatch_dependency_webhook(
 ):
     """
     Fan out a prodoc.dependency.<created|deleted> webhook event to all
-    active webhooks in the workspace that are subscribed to issue events.
+    active webhooks in the workspace that have opted in.
 
-    Piggybacks on the existing Webhook.issue boolean opt-in. The Webhook
-    model has no `issue_relation` / `dependency` field and we are not
-    allowed to add one in Extension 1 (it's an upstream model).
-    Subscribers to issue events implicitly receive dependency events;
-    this is documented in the Extension 1 build notes as a known
-    limitation, to be resolved in Extension 2 by adding a dedicated
-    Webhook.dependency field.
+    Opt-in resolution (added in Extension 2):
+
+    1. **Primary** — `ProdocWebhookSettings.dependency=True`. The sidecar
+       lives in `plane.prodoc.models.webhook_settings` and joins through
+       the `Webhook.prodoc_settings` reverse relation. Webhooks without a
+       sidecar row are excluded from this filter via inner-join semantics,
+       which is the correct default ("not opted in").
+    2. **Fallback** — `Webhook.issue=True` for any webhook NOT already in
+       the primary set. This is the Extension 1 piggyback opt-in, kept
+       for one release cycle so existing customer webhooks keep
+       receiving prodoc.dependency.* events without explicit migration.
+
+    TODO(ext3): drop the Webhook.issue fallback once all customer
+    webhooks have explicitly opted in via ProdocWebhookSettings.dependency.
     """
     event_name = f"prodoc.dependency.{action}"
 
@@ -34,12 +41,19 @@ def prodoc_dispatch_dependency_webhook(
     # can replicate its output from a Celery task.
     current_site = settings.WEB_URL or settings.APP_BASE_URL or ""
 
-    webhook_qs = Webhook.objects.filter(
+    primary_qs = Webhook.objects.filter(
         workspace_id=workspace_id,
         is_active=True,
-        issue=True,
         deleted_at__isnull=True,
+        prodoc_settings__dependency=True,
     )
+    fallback_qs = Webhook.objects.filter(
+        workspace_id=workspace_id,
+        is_active=True,
+        deleted_at__isnull=True,
+        issue=True,
+    ).exclude(prodoc_settings__dependency=True)
+    webhook_qs = (primary_qs | fallback_qs).distinct()
 
     workspace_slug = webhook_qs.values_list("workspace__slug", flat=True).first()
     if workspace_slug is None:
@@ -56,7 +70,12 @@ def prodoc_dispatch_dependency_webhook(
 
     # Map our prodoc action verb to the HTTP-style action webhook_send_task
     # normalizes via its internal {POST: create, DELETE: delete, ...} table.
-    http_action = {"created": "POST", "deleted": "DELETE"}.get(action, "POST")
+    # "cascaded" (Ext 2) is treated as an update.
+    http_action = {
+        "created": "POST",
+        "deleted": "DELETE",
+        "cascaded": "PATCH",
+    }.get(action, "POST")
 
     for webhook in webhook_qs:
         webhook_send_task.delay(
