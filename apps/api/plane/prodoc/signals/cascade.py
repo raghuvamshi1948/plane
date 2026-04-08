@@ -47,6 +47,7 @@ Idempotency:
 """
 
 import threading
+from contextlib import contextmanager
 
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
@@ -72,6 +73,32 @@ _cascade_local = threading.local()
 # Per-pk snapshot of the prior target_date, populated by pre_save and
 # consumed by post_save.
 _target_date_snapshot = threading.local()
+
+
+@contextmanager
+def cascade_suppressed():
+    """Suppress the dependency cascade for the duration of the block.
+
+    Used by Ext 3's materializer when constructing the issue graph in
+    bulk: we are *building* dependency edges, not slipping them, so the
+    cascade walker is pure waste during materialization. Reuses the same
+    thread-local guard the cascade receiver already checks for re-entry
+    — when `active` is truthy the receiver early-returns at
+    ``cascade.py:`` ``cascade_on_target_date_change`` — so this context
+    manager is the public surface for Ext 3 without touching the
+    receiver body.
+
+    Properly nests: saves the prior `active` value on entry and restores
+    it on exit, so a cascade-internal call that happens to run inside a
+    ``with cascade_suppressed():`` block still sees the cascade as
+    suppressed when it unwinds through its own ``finally``.
+    """
+    previously_active = getattr(_cascade_local, "active", False)
+    _cascade_local.active = True
+    try:
+        yield
+    finally:
+        _cascade_local.active = previously_active
 
 
 def _get_snapshots():
