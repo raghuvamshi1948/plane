@@ -1,6 +1,10 @@
 from plane.prodoc.models.holiday import HolidayCalendar
 from plane.prodoc.models.project_settings import ProdocProjectSettings
 from plane.prodoc.models.template import ProdocTemplate, ProdocTemplateSection
+from plane.prodoc.models.template_task import (
+    ProdocTemplateTask,
+    ProdocTemplateTaskDependency,
+)
 from plane.prodoc.models.webhook_settings import ProdocWebhookSettings
 
 __all__ = [
@@ -8,5 +12,7 @@ __all__ = [
     "ProdocProjectSettings",
     "ProdocTemplate",
     "ProdocTemplateSection",
+    "ProdocTemplateTask",
+    "ProdocTemplateTaskDependency",
     "ProdocWebhookSettings",
 ]
