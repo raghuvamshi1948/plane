@@ -34,8 +34,10 @@ def _reset_api_key_throttle():
     and flips later tests to HTTP 429. Clearing the cache before each
     test keeps the throttle per-test instead of cumulative.
     """
-    cache.delete("throttle_api_key:test-api-token-12345")
-    cache.delete("throttle_api_key:other-api-token-67890")
+    # ApiKeyRateThrottle.get_cache_key returns "{scope}:{api_key}"
+    # verbatim — no "throttle_" prefix. Clear both known test tokens.
+    cache.delete("api_key:test-api-token-12345")
+    cache.delete("api_key:other-api-token-67890")
     yield
 
 
