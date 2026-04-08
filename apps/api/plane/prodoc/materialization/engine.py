@@ -47,6 +47,7 @@ path (commit 7) can walk and soft-delete on failure. The real
 
 from plane.db.models import Issue, IssueAssignee, IssueRelation, Module, ModuleIssue
 from plane.prodoc.materialization.role_resolver import resolve_assignees
+from plane.prodoc.models import ProdocIssueLink
 
 
 class _NullJob:
@@ -130,6 +131,24 @@ def materialize(plan, project, job=None, *, dry_run=False):
         )
         wi.issue_id = issue.id
         job.work_items_created.append(str(issue.id))
+
+        # Step 4: Prodoc sidecar. Carries template_task / site / wave
+        # back-pointers and the typed M2M to requirements/tools so the
+        # UI can render the Prodoc-only metadata without touching the
+        # upstream Issue model (CLAUDE.md §2).
+        link = ProdocIssueLink.objects.create(
+            issue=issue,
+            workspace=project.workspace,
+            project=project,
+            template_task_id=wi.template_task_id,
+            site_id=wi.site_id,
+            wave_id=wi.wave_id,
+            sla_hours=wi.sla_hours,
+        )
+        if wi.migration_requirement_ids:
+            link.migration_requirements.set(wi.migration_requirement_ids)
+        if wi.third_party_tool_ids:
+            link.third_party_tools.set(wi.third_party_tool_ids)
 
         for user in assignees_by_role[wi.role_key]:
             IssueAssignee.objects.create(

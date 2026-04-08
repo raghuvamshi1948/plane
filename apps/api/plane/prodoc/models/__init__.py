@@ -1,4 +1,6 @@
 from plane.prodoc.models.holiday import HolidayCalendar
+from plane.prodoc.models.issue_link import ProdocIssueLink
+from plane.prodoc.models.materialization_job import ProdocMaterializationJob
 from plane.prodoc.models.project_settings import ProdocProjectSettings
 from plane.prodoc.models.reference import (
     ProdocMigrationRequirement,
@@ -15,6 +17,8 @@ from plane.prodoc.models.webhook_settings import ProdocWebhookSettings
 
 __all__ = [
     "HolidayCalendar",
+    "ProdocIssueLink",
+    "ProdocMaterializationJob",
     "ProdocMigrationRequirement",
     "ProdocProjectSettings",
     "ProdocSite",
