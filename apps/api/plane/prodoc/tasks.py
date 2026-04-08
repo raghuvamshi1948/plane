@@ -1,8 +1,12 @@
+import traceback
+
 from celery import shared_task
 from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
 
 from plane.bgtasks.webhook_task import webhook_send_task
-from plane.db.models import Webhook
+from plane.db.models import Issue, IssueRelation, Module, Webhook
 
 
 @shared_task
@@ -94,3 +98,132 @@ def prodoc_dispatch_dependency_webhook(
                 "new_identifier": None,
             },
         )
+
+
+@shared_task(name="prodoc_materialize_project", max_retries=0)
+def prodoc_materialize_project(job_id):
+    """Execute a queued ProdocMaterializationJob against the database.
+
+    Lifecycle:
+        queued → running → (succeeded | failed)
+
+    Transaction boundary:
+        The wet-run engine writes ~180 rows per call (~120 Issues,
+        ~60 relations, plus sidecars and modules). Every write is
+        wrapped in a single `transaction.atomic()` so a mid-run
+        failure leaves zero rows committed. The job bookkeeping write
+        (`status='failed'`, `error_log=traceback`, `finished_at=now`)
+        happens in a **separate** atomic block outside the rolled-back
+        one, so the failure record survives even though the work itself
+        did not.
+
+    Cascade suppression:
+        Wraps the engine in `cascade_suppressed()` so Ext 2's
+        post_save cascade walker doesn't re-traverse the dependency
+        graph on every Issue.save() during construction. The context
+        manager is scoped to the engine block — subsequent saves in
+        any other request still fire the cascade normally.
+
+    Retries (C3 resolution — see Ext 3 plan file):
+        `max_retries=0`. Matches build plan §7.7 step 11 verbatim.
+        A failed job is terminal; ops re-runs explicitly. The engine's
+        atomic transaction is the safety boundary — there is nothing
+        half-written to clean up, so there's no "am I a retry" state
+        to detect and no rollback pass to re-run.
+
+    Template locking:
+        On success, we flip `template.is_locked=True` so further edits
+        require a version bump. Commit 8's REST API enforces this on
+        PATCH with a 409. The flip lives inside the success branch
+        because a failed materialization should not lock the template.
+    """
+    # Lazy imports: the task module is loaded by Celery workers at boot
+    # before the Django app registry is fully primed. Models are safe at
+    # call time but not at import time.
+    from plane.prodoc.materialization import build_plan
+    from plane.prodoc.materialization.engine import materialize
+    from plane.prodoc.models import (
+        ProdocMaterializationJob,
+        ProdocSite,
+        ProdocWave,
+    )
+    from plane.prodoc.signals.cascade import cascade_suppressed
+
+    job = ProdocMaterializationJob.objects.select_related(
+        "template", "project", "workspace"
+    ).get(id=job_id)
+
+    # Status transition: queued → running. A small atomic block so the
+    # running status is visible to any poller that hits the GET endpoint
+    # between here and the first engine write.
+    with transaction.atomic():
+        job.status = "running"
+        job.started_at = timezone.now()
+        job.save(update_fields=["status", "started_at", "updated_at"])
+
+    project = job.project
+    template = job.template
+    sites = list(
+        ProdocSite.objects.filter(
+            project=project, deleted_at__isnull=True
+        )
+    )
+    waves = list(
+        ProdocWave.objects.filter(
+            project=project, deleted_at__isnull=True
+        ).order_by("order")
+    )
+
+    try:
+        with transaction.atomic():
+            with cascade_suppressed():
+                plan = build_plan(
+                    template=template,
+                    project=project,
+                    start_date=job.start_date,
+                    sites=sites,
+                    waves=waves,
+                )
+                materialize(plan, project, job=job, dry_run=False)
+
+                # Success branch is *inside* the atomic block so the
+                # status flip + the work items commit together. If the
+                # flip itself failed (it shouldn't, but), the whole
+                # transaction unwinds and we fall through to the except.
+                job.status = "succeeded"
+                job.finished_at = timezone.now()
+                job.save(
+                    update_fields=[
+                        "status",
+                        "finished_at",
+                        "work_items_created",
+                        "modules_created",
+                        "relations_created",
+                        "error_log",
+                        "updated_at",
+                    ]
+                )
+                # Lock the template — further edits require a bump.
+                template.is_locked = True
+                template.save(update_fields=["is_locked", "updated_at"])
+    except Exception:
+        # Separate transaction so the failure record survives the
+        # rolled-back work. We don't need to soft-delete created rows
+        # because the atomic block above rolled them back wholesale;
+        # the job's _created lists reflect what we *attempted*, useful
+        # for the post-mortem even though nothing landed on disk.
+        error_text = traceback.format_exc()
+        with transaction.atomic():
+            job.refresh_from_db()
+            job.status = "failed"
+            job.error_log = error_text
+            job.finished_at = timezone.now()
+            job.save(
+                update_fields=[
+                    "status",
+                    "error_log",
+                    "finished_at",
+                    "updated_at",
+                ]
+            )
+        raise
