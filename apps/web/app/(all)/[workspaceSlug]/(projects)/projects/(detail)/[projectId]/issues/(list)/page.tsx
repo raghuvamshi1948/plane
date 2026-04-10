@@ -10,12 +10,13 @@ import { useTranslation } from "@plane/i18n";
 // components
 import { PageHead } from "@/components/core/page-title";
 import { ProjectLayoutRoot } from "@/components/issues/issue-layouts/roots/project-layout-root";
+import { ApplyTemplateButton } from "@/components/prodoc/projects/apply-template-button";
 // hooks
 import { useProject } from "@/hooks/store/use-project";
 import type { Route } from "./+types/page";
 
 function ProjectIssuesPage({ params }: Route.ComponentProps) {
-  const { projectId } = params;
+  const { workspaceSlug, projectId } = params;
   // i18n
   const { t } = useTranslation();
   // store
@@ -28,6 +29,7 @@ function ProjectIssuesPage({ params }: Route.ComponentProps) {
   return (
     <>
       <PageHead title={pageTitle} />
+      <ApplyTemplateButton workspaceSlug={workspaceSlug} projectId={projectId} projectName={project?.name ?? ""} />
       <div className="h-full w-full">
         <ProjectLayoutRoot />
       </div>
