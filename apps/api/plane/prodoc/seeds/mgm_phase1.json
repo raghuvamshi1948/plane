@@ -1,0 +1,91 @@
+{
+  "template": {
+    "slug": "mgm-phase1",
+    "version": "1.0",
+    "name": "MGM Phase 1",
+    "description": "Small sample template exercised by the Extension 3 end-to-end test. Not the real MGM playbook — that lives outside the repo."
+  },
+  "migration_requirements": [
+    {
+      "slug": "req-patient-export",
+      "name": "Patient Export",
+      "description": "Customer exports the patient table in agreed schema.",
+      "category": "data",
+      "default_owner_role": "admin"
+    },
+    {
+      "slug": "req-sso-config",
+      "name": "SSO Config",
+      "description": "Customer provides SSO IdP metadata.",
+      "category": "access",
+      "default_owner_role": "admin"
+    }
+  ],
+  "third_party_tools": [
+    {
+      "slug": "tool-salesforce",
+      "name": "Salesforce",
+      "description": "Customer's existing CRM of record.",
+      "category": "integration",
+      "default_owner_role": "admin"
+    }
+  ],
+  "sections": [
+    { "slug": "kickoff", "name": "Kickoff", "order": 1 },
+    { "slug": "rollout", "name": "Rollout", "order": 2 }
+  ],
+  "tasks": [
+    {
+      "slug": "prep",
+      "section_slug": "kickoff",
+      "title": "Prep",
+      "description": "Collect prerequisites.",
+      "offset_days": 0,
+      "duration_days": 2,
+      "role_key": "admin",
+      "sla_hours": 24,
+      "repeat_per_site": false,
+      "repeat_per_wave": false,
+      "dependency_mode": "all",
+      "order": 1,
+      "migration_requirement_slugs": ["req-patient-export", "req-sso-config"],
+      "third_party_tool_slugs": ["tool-salesforce"]
+    },
+    {
+      "slug": "site-visit",
+      "section_slug": "rollout",
+      "title": "Site visit",
+      "description": "Physically walk the site.",
+      "offset_days": 3,
+      "duration_days": 1,
+      "role_key": "member",
+      "sla_hours": null,
+      "repeat_per_site": true,
+      "repeat_per_wave": false,
+      "dependency_mode": "same_site",
+      "order": 2,
+      "migration_requirement_slugs": [],
+      "third_party_tool_slugs": []
+    },
+    {
+      "slug": "launch",
+      "section_slug": "rollout",
+      "title": "Launch wave",
+      "description": "Cut over for the wave.",
+      "offset_days": 5,
+      "duration_days": 1,
+      "role_key": "admin",
+      "sla_hours": null,
+      "repeat_per_site": false,
+      "repeat_per_wave": true,
+      "dependency_mode": "all",
+      "order": 3,
+      "migration_requirement_slugs": [],
+      "third_party_tool_slugs": []
+    }
+  ],
+  "dependencies": [
+    { "upstream_slug": "prep", "downstream_slug": "site-visit" },
+    { "upstream_slug": "site-visit", "downstream_slug": "launch" }
+  ]
+}

@@ -9,6 +9,7 @@
 pytest_plugins = ["plane.tests.conftest"]
 
 import pytest
+from django.core.cache import cache
 
 from plane.db.models import (
     Issue,
@@ -21,6 +22,23 @@ from plane.db.models import (
     WorkspaceMember,
 )
 from plane.db.models.api import APIToken
+
+
+@pytest.fixture(autouse=True)
+def _reset_api_key_throttle():
+    """Clear the DRF throttle cache for the shared test API key.
+
+    The upstream test harness reuses `test-api-token-12345` for every
+    test, and `ApiKeyRateThrottle` caps it at 60/minute. Extension 3
+    adds enough endpoints that a full prodoc regression hits the cap
+    and flips later tests to HTTP 429. Clearing the cache before each
+    test keeps the throttle per-test instead of cumulative.
+    """
+    # ApiKeyRateThrottle.get_cache_key returns "{scope}:{api_key}"
+    # verbatim — no "throttle_" prefix. Clear both known test tokens.
+    cache.delete("api_key:test-api-token-12345")
+    cache.delete("api_key:other-api-token-67890")
+    yield
 
 
 @pytest.fixture
