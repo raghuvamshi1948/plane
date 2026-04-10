@@ -1,0 +1,28 @@
+name: Prodoc upstream edit guard
+
+on:
+  pull_request:
+    branches:
+      - "preview"
+    types:
+      - "opened"
+      - "synchronize"
+      - "reopened"
+
+concurrency:
+  group: prodoc-guard-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-upstream-edits:
+    name: Prodoc upstream edit ceiling
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Run prodoc diff check
+        run: bash apps/web/scripts/check-prodoc-diff.sh preview
