@@ -2,7 +2,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { Search } from "lucide-react";
 import { Button } from "@plane/propel/button";
-import { CircularSpinner, ModalCore, EModalWidth } from "@plane/ui";
+import { Spinner, ModalCore, EModalWidth } from "@plane/ui";
 import { useProdocApi } from "@/components/prodoc/hooks/use-prodoc-api";
 import { TemplateStatusBadge } from "@/components/prodoc/templates/template-status-badge";
 
@@ -49,7 +49,7 @@ export function TemplateSelectionModal({ isOpen, onClose, onSelect, workspaceSlu
         <div className="max-h-80 overflow-y-auto px-5 py-3">
           {isLoading ? (
             <div className="flex justify-center py-10">
-              <CircularSpinner />
+              <Spinner />
             </div>
           ) : filtered.length === 0 ? (
             <p className="py-10 text-center text-13 text-secondary">No published templates found.</p>

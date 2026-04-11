@@ -2,7 +2,7 @@ import { observer } from "mobx-react";
 import { useNavigate } from "react-router";
 import useSWR from "swr";
 import { Layers } from "lucide-react";
-import { CircularSpinner } from "@plane/ui";
+import { Spinner } from "@plane/ui";
 import { ProdocFeatureGate } from "@/components/prodoc/components/prodoc-feature-gate";
 import { useProdocApi } from "@/components/prodoc/hooks/use-prodoc-api";
 
@@ -22,7 +22,7 @@ function WavesManagerInner({ workspaceSlug, projectId }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <CircularSpinner />
+        <Spinner />
       </div>
     );
   }

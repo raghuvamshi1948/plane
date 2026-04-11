@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import useSWR from "swr";
 import { Plus } from "lucide-react";
 import { Button } from "@plane/propel/button";
-import { CircularSpinner } from "@plane/ui";
+import { Spinner } from "@plane/ui";
 import { ProdocFeatureGate } from "@/components/prodoc/components/prodoc-feature-gate";
 import { useProdocApi } from "@/components/prodoc/hooks/use-prodoc-api";
 import { TemplateCard } from "./template-card";
@@ -23,7 +23,7 @@ function TemplateListInner({ workspaceSlug }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <CircularSpinner />
+        <Spinner />
       </div>
     );
   }

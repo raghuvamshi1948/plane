@@ -1,5 +1,5 @@
 import useSWR from "swr";
-import { CircularSpinner } from "@plane/ui";
+import { Spinner } from "@plane/ui";
 import { ProdocFeatureGate } from "@/components/prodoc/components/prodoc-feature-gate";
 import { useProdocApi } from "@/components/prodoc/hooks/use-prodoc-api";
 
@@ -51,7 +51,7 @@ function VersionDiffInner({ workspaceSlug, templateId, compareId }: Props) {
   if (!currentTemplate || !compareTemplate || !currentTasks || !compareTasks) {
     return (
       <div className="flex items-center justify-center py-20">
-        <CircularSpinner />
+        <Spinner />
       </div>
     );
   }

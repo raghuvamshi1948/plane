@@ -2,7 +2,7 @@ import { useNavigate } from "react-router";
 import useSWR from "swr";
 import { GitCompare } from "lucide-react";
 import { Button } from "@plane/propel/button";
-import { CircularSpinner } from "@plane/ui";
+import { Spinner } from "@plane/ui";
 import { useProdocApi } from "@/components/prodoc/hooks/use-prodoc-api";
 import { TemplateStatusBadge } from "./template-status-badge";
 
@@ -19,7 +19,7 @@ export function VersionHistory({ workspaceSlug, currentTemplateId }: Props) {
     api.listTemplates(workspaceSlug)
   );
 
-  if (isLoading) return <CircularSpinner />;
+  if (isLoading) return <Spinner />;
 
   // Find all versions of the same template lineage
   const allVersions = (templates ?? []).filter(

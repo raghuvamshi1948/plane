@@ -1,5 +1,5 @@
 import useSWR from "swr";
-import { APIService } from "@plane/services";
+import { APIService } from "@/services/api.service";
 
 const PRODOC_FEATURE_FLAG_KEY = "PRODOC_FEATURE_FLAG";
 

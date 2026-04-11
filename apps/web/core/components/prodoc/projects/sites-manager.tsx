@@ -4,7 +4,7 @@ import useSWR, { mutate } from "swr";
 import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
-import { CircularSpinner } from "@plane/ui";
+import { Spinner } from "@plane/ui";
 import { ProdocFeatureGate } from "@/components/prodoc/components/prodoc-feature-gate";
 import { useProdocApi } from "@/components/prodoc/hooks/use-prodoc-api";
 import type { ProdocSite } from "@/components/prodoc/hooks/use-prodoc-api";
@@ -49,7 +49,7 @@ function SitesManagerInner({ workspaceSlug, projectId }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <CircularSpinner />
+        <Spinner />
       </div>
     );
   }

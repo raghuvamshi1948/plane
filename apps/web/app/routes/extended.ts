@@ -5,6 +5,6 @@
  */
 
 import type { RouteConfigEntry } from "@react-router/dev/routes";
-import { prodocRoutes } from "@/components/prodoc/routes";
+import { prodocRoutes } from "../../core/components/prodoc/routes";
 
 export const extendedRoutes: RouteConfigEntry[] = [...prodocRoutes];

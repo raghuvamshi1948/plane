@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { APIService } from "@plane/services";
+import { APIService } from "@/services/api.service";
 
 const BASE_URL = "/api/v1/prodoc";
 

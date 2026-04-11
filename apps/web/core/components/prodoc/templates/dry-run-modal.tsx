@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { ChevronDown, ChevronRight, AlertTriangle } from "lucide-react";
 import { Button } from "@plane/propel/button";
-import { CircularSpinner, ModalCore, EModalWidth } from "@plane/ui";
+import { Spinner, ModalCore, EModalWidth } from "@plane/ui";
 import { useProdocApi } from "@/components/prodoc/hooks/use-prodoc-api";
 import type { DryRunResult } from "@/components/prodoc/hooks/use-prodoc-api";
 
@@ -88,7 +88,7 @@ export function DryRunModal({
         <div className="max-h-[60vh] overflow-y-auto px-5 py-4">
           {loading && (
             <div className="flex flex-col items-center justify-center py-16">
-              <CircularSpinner />
+              <Spinner />
               <p className="mt-3 text-13 text-secondary">Running dry-run...</p>
             </div>
           )}
