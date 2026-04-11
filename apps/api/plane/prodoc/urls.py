@@ -1,6 +1,7 @@
 from django.urls import path
 
 from plane.prodoc.views.dependency import IssueRelationDeleteAPIEndpoint
+from plane.prodoc.views.feature_flag import ProdocFeatureFlagAPIEndpoint
 from plane.prodoc.views.holiday import (
     HolidayCalendarDetailAPIEndpoint,
     HolidayCalendarListCreateAPIEndpoint,
@@ -38,6 +39,11 @@ from plane.prodoc.views.template import (
 )
 
 urlpatterns = [
+    path(
+        "feature-flag/",
+        ProdocFeatureFlagAPIEndpoint.as_view(http_method_names=["get", "options"]),
+        name="prodoc-feature-flag",
+    ),
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/"
         "work-items/<uuid:issue_id>/relations/<uuid:relation_id>/",
